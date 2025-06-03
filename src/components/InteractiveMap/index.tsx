@@ -25,15 +25,14 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({
   imageWidth = 2000,
   imageHeight = 2000,
   mapAreas = [],
-  onAreaClick,
   onAreaHover,
 }) => {
   const svgRef = useRef<SVGSVGElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  const [selectedArea, setSelectedArea] = useState<MapArea | null>(null);
   const [hoveredArea, setHoveredArea] = useState<MapArea | null>(null);
   const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
+  const [animatingArea, setAnimatingArea] = useState<string | null>(null);
 
   // État pour le zoom et le pan
   const [transform, setTransform] = useState({
@@ -96,10 +95,10 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({
       const minScaleX = containerSize.width / imageWidth;
       const minScaleY = containerSize.height / imageHeight;
       const minScale = Math.max(minScaleX, minScaleY, 0.1);
-      
+
       // Limiter le zoom
       const constrainedScale = Math.max(minScale, Math.min(5, scale));
-      
+
       const scaledWidth = imageWidth * constrainedScale;
       const scaledHeight = imageHeight * constrainedScale;
 
@@ -198,9 +197,9 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({
           height: containerRef.current.clientHeight,
         };
         setContainerSize(newSize);
-        
+
         // Recalculer la transformation pour maintenir les contraintes
-        setTransform(prev => constrainTransform(prev.x, prev.y, prev.scale));
+        setTransform((prev) => constrainTransform(prev.x, prev.y, prev.scale));
       }
     };
 
@@ -218,22 +217,41 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({
     return points.join(" ");
   };
 
-  // Gestion du clic sur une zone
-  const handleAreaClick = useCallback(
-    (area: MapArea): void => {
-      setSelectedArea(area);
-      if (onAreaClick) {
-        onAreaClick(area);
-      }
-    },
-    [onAreaClick]
-  );
+  // Fonction pour calculer la longueur du périmètre d'un polygone
+  const getPolygonPerimeter = (coords: number[]): number => {
+    let perimeter = 0;
+    for (let i = 0; i < coords.length; i += 2) {
+      const x1 = coords[i];
+      const y1 = coords[i + 1];
+      const x2 = coords[(i + 2) % coords.length];
+      const y2 = coords[(i + 3) % coords.length];
+
+      perimeter += Math.sqrt(Math.pow(x2 - x1, 2) + Math.pow(y2 - y1, 2));
+    }
+    return perimeter;
+  };
 
   // Gestion du survol
   const handleAreaMouseEnter = useCallback(
     (area: MapArea, e: React.MouseEvent): void => {
       setHoveredArea(area);
-      setTooltipPos({ x: e.clientX, y: e.clientY });
+      setAnimatingArea(area.id);
+
+      // Définir la variable CSS pour l'animation
+      const perimeter = getPolygonPerimeter(area.coords);
+      if (svgRef.current) {
+        svgRef.current.style.setProperty("--stroke-dashoffset", `${perimeter}`);
+      }
+
+      // Position du tooltip centrée au-dessus du curseur
+      const rect = containerRef.current?.getBoundingClientRect();
+      if (rect) {
+        setTooltipPos({
+          x: e.clientX - rect.left,
+          y: e.clientY - rect.top,
+        });
+      }
+
       if (onAreaHover) {
         onAreaHover(area);
       }
@@ -242,11 +260,19 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({
   );
 
   const handleAreaMouseMove = useCallback((e: React.MouseEvent): void => {
-    setTooltipPos({ x: e.clientX, y: e.clientY });
+    // Position du tooltip centrée au-dessus du curseur
+    const rect = containerRef.current?.getBoundingClientRect();
+    if (rect) {
+      setTooltipPos({
+        x: e.clientX - rect.left,
+        y: e.clientY - rect.top,
+      });
+    }
   }, []);
 
   const handleAreaMouseLeave = useCallback((): void => {
     setHoveredArea(null);
+    setAnimatingArea(null);
   }, []);
 
   // Gestion du zoom avec la molette
@@ -323,33 +349,25 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({
 
   return (
     <div className="w-full h-screen bg-gray-900 relative overflow-hidden">
-      {/* Tooltip */}
+      {/* Tooltip centré au-dessus du curseur */}
       {hoveredArea && (
-        <div 
-          className="fixed z-30 bg-white text-xs text-white px-3 py-2 rounded-lg shadow-lg pointer-events-none"
+        <div
+          className="absolute px-3 py-2 z-50 bg-white text-sm font-medium rounded-md pointer-events-none shadow-lg border border-gray-200 whitespace-nowrap"
           style={{
-            left: tooltipPos.x + 10,
-            top: tooltipPos.y - 60,
-            transform: tooltipPos.x > window.innerWidth - 200 ? 'translateX(-100%)' : 'none'
-          }}
-        >
-          <div className="font-semibold text-primary">{hoveredArea.title}</div>
-        </div>
-      )}
-
-      {/* Panneau d'information pour la zone sélectionnée */}
-      {selectedArea && (
-        <div className="absolute top-4 right-4 z-20 bg-white rounded-lg shadow-lg p-4 max-w-sm">
-          <h3 className="font-bold text-lg mb-2">{selectedArea.title}</h3>
-          <p className="text-sm text-gray-600">ID: {selectedArea.id}</p>
-          <p className="text-sm text-gray-600">Type: {selectedArea.shape}</p>
-          <p className="text-xs text-green-600 mt-1">Sélectionné</p>
-          <button 
-            onClick={() => setSelectedArea(null)}
-            className="mt-2 text-xs text-gray-500 hover:text-gray-700"
-          >
-            ✕ Fermer
-          </button>
+            left: tooltipPos.x,
+            top: tooltipPos.y - 40,
+            transform: "translateX(-50%)",
+            whiteSpace: "nowrap",
+          }}>
+          <div className="text-primary">{hoveredArea.title}</div>
+          <div
+            className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0"
+            style={{
+              borderLeft: "6px solid transparent",
+              borderRight: "6px solid transparent",
+              borderTop: "6px solid white",
+            }}
+          />
         </div>
       )}
 
@@ -411,44 +429,51 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({
             )}
 
             {/* Zones interactives */}
-            {mapAreas.map((area) => (
-              <polygon
-                key={area.id}
-                points={coordsToPoints(area.coords)}
-                fill={
-                  hoveredArea?.id === area.id
-                    ? "rgba(255, 255, 255, 0.25)"
-                    : selectedArea?.id === area.id
-                    ? "rgba(34, 197, 94, 0.3)"
-                    : "transparent"
-                }
-                stroke={
-                  hoveredArea?.id === area.id
-                    ? "white"
-                    : selectedArea?.id === area.id
-                    ? "#22c55e"
-                    : "transparent"
-                }
-                strokeWidth={
-                  hoveredArea?.id === area.id
-                    ? 3
-                    : selectedArea?.id === area.id
-                    ? 2
-                    : 0
-                }
-                style={{
-                  cursor: "pointer",
-                  transition: "all 0.2s ease",
-                }}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleAreaClick(area);
-                }}
-                onMouseEnter={(e) => handleAreaMouseEnter(area, e)}
-                onMouseMove={handleAreaMouseMove}
-                onMouseLeave={handleAreaMouseLeave}
-              />
-            ))}
+            {mapAreas.map((area) => {
+              const isHovered = hoveredArea?.id === area.id;
+              const isAnimating = animatingArea === area.id;
+              const perimeter = getPolygonPerimeter(area.coords);
+
+              return (
+                <g key={area.id}>
+                  {/* Polygone principal */}
+                  <polygon
+                    points={coordsToPoints(area.coords)}
+                    fill={
+                      isHovered ? "rgba(255, 255, 255, 0.25)" : "transparent"
+                    }
+                    stroke="transparent"
+                    strokeWidth="0"
+                    style={{
+                      cursor: "pointer",
+                      transition: "fill 0.3s ease",
+                    }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                    }}
+                    onMouseEnter={(e) => handleAreaMouseEnter(area, e)}
+                    onMouseMove={handleAreaMouseMove}
+                    onMouseLeave={handleAreaMouseLeave}
+                  />
+
+                  {/* Contour animé pour le survol */}
+                  {isAnimating && (
+                    <polygon
+                      points={coordsToPoints(area.coords)}
+                      fill="none"
+                      stroke="#ffffff"
+                      strokeWidth="4"
+                      strokeDasharray={`${perimeter}`}
+                      strokeDashoffset={perimeter}
+                      className="animate-draw-border"
+                      style={{
+                        pointerEvents: "none",
+                      }}
+                    />
+                  )}
+                </g>
+              );
+            })}
           </g>
         </svg>
       </div>

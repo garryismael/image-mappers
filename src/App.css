@@ -1,6 +1,60 @@
-.img-mapper img {
-  object-fit: cover;
-  width: 100%;
-  height: 100%;
-  display: block;
+@keyframes drawBorder {
+  0% {
+    stroke-dashoffset: var(--stroke-dashoffset);
+    opacity: 0;
+  }
+  8% {
+    opacity: 1;
+  }
+  100% {
+    stroke-dashoffset: 0;
+    opacity: 1;
+  }
+}
+
+.animate-draw-border {
+  animation: drawBorder 0.8s ease-out forwards;
+}
+
+/* Styles additionnels pour le composant InteractiveMap */
+.interactive-map-container {
+  --stroke-dashoffset: 0;
+}
+
+/* Animation alternative plus fluide (optionnelle) */
+@keyframes drawBorderSmooth {
+  0% {
+    stroke-dashoffset: var(--stroke-dashoffset);
+    opacity: 0;
+  }
+  5% {
+    opacity: 1;
+  }
+  100% {
+    stroke-dashoffset: 0;
+    opacity: 1;
+  }
+}
+
+.animate-draw-border-smooth {
+  animation: drawBorderSmooth 2s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+}
+
+/* Animation rapide pour les interactions fréquentes */
+@keyframes drawBorderFast {
+  0% {
+    stroke-dashoffset: var(--stroke-dashoffset);
+    opacity: 0;
+  }
+  15% {
+    opacity: 1;
+  }
+  100% {
+    stroke-dashoffset: 0;
+    opacity: 1;
+  }
+}
+
+.animate-draw-border-fast {
+  animation: drawBorderFast 1s ease-out forwards;
 }
