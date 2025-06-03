@@ -1,5 +1,7 @@
 import React, { useRef, useState, useCallback, useEffect } from "react";
 import { TooltipDisplay } from "../TooltipDisplay";
+import { Maximize, Minimize } from "lucide-react";
+import { useFullscreen } from "@/hooks/use-fullscreen";
 
 // Type pour les zones de la carte
 export interface MapArea {
@@ -36,6 +38,7 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({
   const [hoveredArea, setHoveredArea] = useState<MapArea | null>(null);
   const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
   const [animatingArea, setAnimatingArea] = useState<string | null>(null);
+  const { active, isSupported, toggle } = useFullscreen();
 
   // État pour le zoom et le pan
   const [transform, setTransform] = useState({
@@ -478,7 +481,7 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({
                       points={area.coords}
                       fill="none"
                       stroke="#22c55e"
-                      strokeWidth="2"
+                      strokeWidth="4"
                       style={{
                         pointerEvents: "none",
                       }}
@@ -490,6 +493,13 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({
           </g>
         </svg>
       </div>
+      {isSupported && (
+        <button
+          onClick={toggle}
+          className="absolute bottom-4 right-4 bg-white rounded-full shadow-md p-4 hover:bg-gray-100 transition">
+          {active ? <Minimize size={24} /> : <Maximize size={24} />}
+        </button>
+      )}
     </div>
   );
 };
