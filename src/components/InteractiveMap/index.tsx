@@ -1,10 +1,10 @@
 import React, { useRef, useState, useCallback, useEffect } from "react";
 
 // Type pour les zones de la carte
-interface MapArea {
+export interface MapArea {
   id: string;
   title: string;
-  coords: number[];
+  coords: string;
   shape: string;
   fillColor: string;
   strokeColor: string;
@@ -25,11 +25,13 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({
   imageWidth = 2000,
   imageHeight = 2000,
   mapAreas = [],
+  onAreaClick,
   onAreaHover,
 }) => {
   const svgRef = useRef<SVGSVGElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
+  const [selectedArea, setSelectedArea] = useState<MapArea | null>(null);
   const [hoveredArea, setHoveredArea] = useState<MapArea | null>(null);
   const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
   const [animatingArea, setAnimatingArea] = useState<string | null>(null);
@@ -208,28 +210,36 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({
     return () => window.removeEventListener("resize", updateSize);
   }, [constrainTransform]);
 
-  // Fonction pour convertir les coordonnées en string de points
-  const coordsToPoints = (coords: number[]): string => {
-    const points: string[] = [];
-    for (let i = 0; i < coords.length; i += 2) {
-      points.push(`${coords[i]},${coords[i + 1]}`);
-    }
-    return points.join(" ");
+  // Fonction pour convertir les coordonnées string en array pour les calculs
+  const coordsStringToArray = (coords: string): number[] => {
+    return coords.split(",").map((coord) => parseFloat(coord.trim()));
   };
 
   // Fonction pour calculer la longueur du périmètre d'un polygone
-  const getPolygonPerimeter = (coords: number[]): number => {
+  const getPolygonPerimeter = useCallback((coords: string): number => {
+    const coordArray = coordsStringToArray(coords);
     let perimeter = 0;
-    for (let i = 0; i < coords.length; i += 2) {
-      const x1 = coords[i];
-      const y1 = coords[i + 1];
-      const x2 = coords[(i + 2) % coords.length];
-      const y2 = coords[(i + 3) % coords.length];
+    for (let i = 0; i < coordArray.length; i += 2) {
+      const x1 = coordArray[i];
+      const y1 = coordArray[i + 1];
+      const x2 = coordArray[(i + 2) % coordArray.length];
+      const y2 = coordArray[(i + 3) % coordArray.length];
 
       perimeter += Math.sqrt(Math.pow(x2 - x1, 2) + Math.pow(y2 - y1, 2));
     }
     return perimeter;
-  };
+  }, []);
+
+  // Gestion du clic sur une zone
+  const handleAreaClick = useCallback(
+    (area: MapArea): void => {
+      setSelectedArea(area);
+      if (onAreaClick) {
+        onAreaClick(area);
+      }
+    },
+    [onAreaClick]
+  );
 
   // Gestion du survol
   const handleAreaMouseEnter = useCallback(
@@ -256,7 +266,7 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({
         onAreaHover(area);
       }
     },
-    [onAreaHover]
+    [getPolygonPerimeter, onAreaHover]
   );
 
   const handleAreaMouseMove = useCallback((e: React.MouseEvent): void => {
@@ -349,13 +359,13 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({
 
   return (
     <div className="w-full h-screen bg-gray-900 relative overflow-hidden">
-      {/* Tooltip centré au-dessus du curseur */}
+      {/* Tooltip avec flèche */}
       {hoveredArea && (
         <div
           className="absolute px-3 py-2 z-50 bg-white text-sm font-medium rounded-md pointer-events-none shadow-lg border border-gray-200 whitespace-nowrap"
           style={{
             left: tooltipPos.x,
-            top: tooltipPos.y - 40,
+            top: tooltipPos.y - 60,
             transform: "translateX(-50%)",
             whiteSpace: "nowrap",
           }}>
@@ -431,6 +441,7 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({
             {/* Zones interactives */}
             {mapAreas.map((area) => {
               const isHovered = hoveredArea?.id === area.id;
+              const isSelected = selectedArea?.id === area.id;
               const isAnimating = animatingArea === area.id;
               const perimeter = getPolygonPerimeter(area.coords);
 
@@ -438,9 +449,13 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({
                 <g key={area.id}>
                   {/* Polygone principal */}
                   <polygon
-                    points={coordsToPoints(area.coords)}
+                    points={area.coords}
                     fill={
-                      isHovered ? "rgba(255, 255, 255, 0.25)" : "transparent"
+                      isHovered
+                        ? "rgba(255, 255, 255, 0.25)"
+                        : isSelected
+                        ? "rgba(34, 197, 94, 0.2)"
+                        : "transparent"
                     }
                     stroke="transparent"
                     strokeWidth="0"
@@ -450,6 +465,7 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({
                     }}
                     onClick={(e) => {
                       e.stopPropagation();
+                      handleAreaClick(area);
                     }}
                     onMouseEnter={(e) => handleAreaMouseEnter(area, e)}
                     onMouseMove={handleAreaMouseMove}
@@ -459,13 +475,26 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({
                   {/* Contour animé pour le survol */}
                   {isAnimating && (
                     <polygon
-                      points={coordsToPoints(area.coords)}
+                      points={area.coords}
                       fill="none"
                       stroke="#ffffff"
-                      strokeWidth="4"
+                      strokeWidth="3"
                       strokeDasharray={`${perimeter}`}
                       strokeDashoffset={perimeter}
                       className="animate-draw-border"
+                      style={{
+                        pointerEvents: "none",
+                      }}
+                    />
+                  )}
+
+                  {/* Contour pour la sélection */}
+                  {isSelected && (
+                    <polygon
+                      points={area.coords}
+                      fill="none"
+                      stroke="#22c55e"
+                      strokeWidth="2"
                       style={{
                         pointerEvents: "none",
                       }}
@@ -480,5 +509,4 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({
     </div>
   );
 };
-
 export default InteractiveMap;
