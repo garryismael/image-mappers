@@ -1,7 +1,10 @@
-import React, { useRef, useState, useCallback, useEffect } from "react";
-import { TooltipDisplay } from "../TooltipDisplay";
-import { Maximize, Minimize } from "lucide-react";
+import { ImageError } from "@/components/ImageError";
+import { ImageLoader } from "@/components/ImageLoader";
+import { TooltipDisplay } from "@/components/TooltipDisplay";
 import { useFullscreen } from "@/hooks/use-fullscreen";
+import { useImageLoading } from "@/hooks/use-load-image";
+import { Maximize, Minimize } from "lucide-react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 
 // Type pour les zones de la carte
 export interface MapArea {
@@ -31,6 +34,7 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({
   onAreaClick,
   onAreaHover,
 }) => {
+  const { isLoading, isError } = useImageLoading(imageSrc);
   const svgRef = useRef<SVGSVGElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -360,9 +364,11 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({
   const handleMouseUp = useCallback(() => {
     setIsDragging(false);
   }, []);
-
   return (
     <div className="w-full h-screen bg-gray-900 relative overflow-hidden">
+      {isLoading && <ImageLoader />}
+      {isError && <ImageError />}
+
       {/* Tooltip avec flèche */}
       {hoveredArea && (
         <TooltipDisplay hoveredArea={hoveredArea} tooltipPos={tooltipPos} />
