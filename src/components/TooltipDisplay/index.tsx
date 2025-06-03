@@ -16,7 +16,7 @@ export const TooltipDisplay = ({
 }: TooltipDisplayProps) => {
   return (
     <div
-      className="absolute px-6 py-1.5 z-50 bg-white text-sm font-medium pointer-events-none shadow-md border border-gray-200 whitespace-nowrap"
+      className="absolute px-6 hidden lg:block py-1.5 z-50 bg-white text-sm font-medium pointer-events-none shadow-md border border-gray-200 whitespace-nowrap"
       style={{
         left: tooltipPos.x,
         top: tooltipPos.y - 60,
