@@ -1,0 +1,17 @@
+@import "tailwindcss";
+
+:root {
+  --primary-color: #a28e77;
+  --font-montserrat: "Montserrat", sans-serif;
+}
+
+@theme inline {
+  --color-primary: var(--primary-color);
+  --font-montserrat: var(--font-montserrat);
+}
+
+@layer base {
+  body {
+    @apply font-montserrat overflow-hidden;
+  }
+}
